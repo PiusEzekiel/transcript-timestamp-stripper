@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Transcript Timestamp Stripper</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --page: #101114;
+      --panel: #181a1f;
+      --panel-2: #20232a;
+      --ink: #f5f0e8;
+      --muted: #aaa299;
+      --soft: #746d66;
+      --line: rgba(245, 240, 232, 0.14);
+      --accent: #f0b35a;
+      --accent-2: #7bdcb5;
+      --danger: #ff7a90;
+      --shadow: rgba(0, 0, 0, 0.35);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 10% 10%, rgba(240, 179, 90, 0.17), transparent 30rem),
+        radial-gradient(circle at 90% 5%, rgba(123, 220, 181, 0.12), transparent 26rem),
+        linear-gradient(135deg, #101114 0%, #17161a 50%, #111417 100%);
+      color: var(--ink);
+    }
+
+    button,
+    textarea,
+    input,
+    select {
+      font: inherit;
+    }
+
+    button {
+      border: 0;
+    }
+
+    .shell {
+      width: min(1320px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 28px 0;
+    }
+
+    header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 20px;
+      align-items: end;
+      padding: 14px 0 22px;
+    }
+
+    .title-block {
+      min-width: 0;
+    }
+
+    .eyebrow {
+      margin: 0 0 10px;
+      color: var(--accent-2);
+      font-size: 0.82rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      max-width: 820px;
+      font-size: clamp(2.1rem, 5vw, 5.4rem);
+      line-height: 0.96;
+      letter-spacing: 0;
+    }
+
+    .subhead {
+      margin: 18px 0 0;
+      max-width: 760px;
+      color: var(--muted);
+      font-size: clamp(1rem, 2vw, 1.18rem);
+      line-height: 1.6;
+    }
+
+    .status-pill {
+      display: inline-grid;
+      grid-template-columns: 10px auto;
+      align-items: center;
+      gap: 10px;
+      min-width: 176px;
+      padding: 11px 14px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(24, 26, 31, 0.8);
+      color: var(--muted);
+      box-shadow: 0 18px 50px var(--shadow);
+      white-space: nowrap;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--accent-2);
+      box-shadow: 0 0 0 5px rgba(123, 220, 181, 0.12);
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(320px, 0.78fr);
+      gap: 18px;
+      align-items: stretch;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(24, 26, 31, 0.82);
+      box-shadow: 0 22px 70px var(--shadow);
+      overflow: hidden;
+      backdrop-filter: blur(18px);
+    }
+
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 16px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(32, 35, 42, 0.68);
+    }
+
+    .panel-title {
+      margin: 0;
+      font-size: 0.98rem;
+      font-weight: 800;
+    }
+
+    .panel-note {
+      color: var(--muted);
+      font-size: 0.86rem;
+    }
+
+    .editor-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      min-height: 560px;
+    }
+
+    .editor-side {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      min-width: 0;
+    }
+
+    .editor-side + .editor-side {
+      border-left: 1px solid var(--line);
+    }
+
+    .side-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 0.86rem;
+    }
+
+    .dropzone {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 40px;
+      padding: 8px 12px;
+      border: 1px dashed rgba(245, 240, 232, 0.26);
+      border-radius: 8px;
+      color: var(--ink);
+      cursor: pointer;
+      background: rgba(245, 240, 232, 0.05);
+      transition: border-color 0.2s ease, background 0.2s ease;
+    }
+
+    .dropzone:hover,
+    .dropzone.dragover {
+      border-color: var(--accent);
+      background: rgba(240, 179, 90, 0.11);
+    }
+
+    .file-input {
+      display: none;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 100%;
+      border: 0;
+      outline: 0;
+      resize: none;
+      padding: 18px;
+      color: var(--ink);
+      background: rgba(12, 13, 16, 0.34);
+      line-height: 1.65;
+      tab-size: 2;
+    }
+
+    textarea::placeholder {
+      color: rgba(170, 162, 153, 0.68);
+    }
+
+    #outputText {
+      background:
+        linear-gradient(180deg, rgba(123, 220, 181, 0.055), transparent 38%),
+        rgba(12, 13, 16, 0.25);
+    }
+
+    .actions {
+      display: grid;
+      gap: 14px;
+      padding: 16px;
+    }
+
+    .format-row,
+    .filename-row {
+      display: grid;
+      gap: 8px;
+    }
+
+    label {
+      color: var(--muted);
+      font-size: 0.86rem;
+      font-weight: 700;
+    }
+
+    select,
+    input[type="text"] {
+      width: 100%;
+      min-height: 44px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(12, 13, 16, 0.46);
+      color: var(--ink);
+      padding: 9px 11px;
+      outline: 0;
+    }
+
+    .button-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 46px;
+      border-radius: 8px;
+      color: var(--ink);
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      cursor: pointer;
+      font-weight: 800;
+      transition: transform 0.16s ease, background 0.16s ease, border-color 0.16s ease;
+    }
+
+    .button:hover {
+      transform: translateY(-1px);
+      border-color: rgba(245, 240, 232, 0.28);
+      background: #272b33;
+    }
+
+    .button.primary {
+      color: #19130b;
+      background: linear-gradient(135deg, var(--accent), #ffd27f);
+      border-color: rgba(255, 210, 127, 0.8);
+    }
+
+    .button.good {
+      color: #081a13;
+      background: linear-gradient(135deg, var(--accent-2), #b9f5d9);
+      border-color: rgba(185, 245, 217, 0.8);
+    }
+
+    .button:disabled {
+      cursor: not-allowed;
+      filter: grayscale(0.7);
+      opacity: 0.58;
+      transform: none;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .stat {
+      min-height: 76px;
+      padding: 13px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(12, 13, 16, 0.34);
+    }
+
+    .stat-value {
+      display: block;
+      margin-bottom: 5px;
+      color: var(--ink);
+      font-size: 1.45rem;
+      font-weight: 900;
+    }
+
+    .stat-label {
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+
+    .options {
+      display: grid;
+      gap: 11px;
+      padding-top: 4px;
+    }
+
+    .check {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      color: var(--ink);
+      font-weight: 600;
+    }
+
+    input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--accent-2);
+    }
+
+    .notice {
+      min-height: 42px;
+      padding: 11px 12px;
+      border: 1px solid rgba(123, 220, 181, 0.3);
+      border-radius: 8px;
+      color: #d8fff0;
+      background: rgba(123, 220, 181, 0.09);
+      font-size: 0.9rem;
+      line-height: 1.45;
+    }
+
+    .notice.error {
+      border-color: rgba(255, 122, 144, 0.35);
+      color: #ffd2da;
+      background: rgba(255, 122, 144, 0.1);
+    }
+
+    footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 18px 2px 0;
+      color: var(--soft);
+      font-size: 0.86rem;
+    }
+
+    @media (max-width: 980px) {
+      header,
+      .workspace {
+        grid-template-columns: 1fr;
+      }
+
+      .status-pill {
+        width: fit-content;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .shell {
+        width: min(100% - 20px, 1320px);
+        padding: 18px 0;
+      }
+
+      .editor-grid,
+      .button-grid,
+      .stats {
+        grid-template-columns: 1fr;
+      }
+
+      .editor-side + .editor-side {
+        border-left: 0;
+        border-top: 1px solid var(--line);
+      }
+
+      .editor-grid {
+        min-height: 760px;
+      }
+
+      header {
+        padding-top: 4px;
+      }
+
+      footer {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div class="title-block">
+        <p class="eyebrow">Pinokio ready local text utility</p>
+        <h1>Clean transcripts in one click.</h1>
+        <p class="subhead">Upload a transcript or paste raw text, strip timestamp clutter, then save the cleaned result as TXT or structured JSON.</p>
+      </div>
+      <div class="status-pill" aria-live="polite">
+        <span class="status-dot"></span>
+        <span id="statusText">Ready offline</span>
+      </div>
+    </header>
+
+    <section class="workspace">
+      <div class="panel">
+        <div class="panel-head">
+          <h2 class="panel-title">Transcript workspace</h2>
+          <span class="panel-note" id="sourceName">Paste text or upload a file</span>
+        </div>
+
+        <div class="editor-grid">
+          <section class="editor-side">
+            <div class="side-toolbar">
+              <label class="dropzone" id="dropZone">
+                Upload transcript
+                <input class="file-input" id="fileInput" type="file" accept=".txt,.vtt,.srt,.json,.md,text/plain,text/vtt,application/json">
+              </label>
+              <span id="inputStats">0 chars</span>
+            </div>
+            <textarea id="inputText" spellcheck="false" placeholder="00:54:45&#10;If it made you feel something, anger, relief, hope, or even just a little less alone, then it did what I hoped it would.&#10;&#10;00:54:56&#10;Now I have a question, if you could protect one thing in your life,"></textarea>
+          </section>
+
+          <section class="editor-side">
+            <div class="side-toolbar">
+              <span>Clean output</span>
+              <span id="outputStats">0 chars</span>
+            </div>
+            <textarea id="outputText" spellcheck="false" readonly placeholder="Your cleaned transcript will appear here."></textarea>
+          </section>
+        </div>
+      </div>
+
+      <aside class="panel">
+        <div class="panel-head">
+          <h2 class="panel-title">Export controls</h2>
+          <span class="panel-note">No data leaves your device</span>
+        </div>
+
+        <div class="actions">
+          <button class="button primary" id="cleanButton" type="button">Strip timestamps</button>
+
+          <div class="format-row">
+            <label for="exportFormat">Save format</label>
+            <select id="exportFormat">
+              <option value="txt">TXT - cleaned transcript only</option>
+              <option value="json">JSON - text, paragraphs, and stats</option>
+            </select>
+          </div>
+
+          <div class="filename-row">
+            <label for="fileName">File name</label>
+            <input id="fileName" type="text" value="clean-transcript">
+          </div>
+
+          <div class="button-grid">
+            <button class="button good" id="downloadButton" type="button" disabled>Save file</button>
+            <button class="button" id="copyButton" type="button" disabled>Copy text</button>
+          </div>
+
+          <div class="button-grid">
+            <button class="button" id="sampleButton" type="button">Load sample</button>
+            <button class="button" id="clearButton" type="button">Clear</button>
+          </div>
+
+          <div class="options">
+            <label class="check">
+              <input id="collapseBreaks" type="checkbox" checked>
+              Collapse extra blank lines
+            </label>
+            <label class="check">
+              <input id="removeCueNumbers" type="checkbox" checked>
+              Remove SRT cue numbers
+            </label>
+            <label class="check">
+              <input id="mergeParagraphs" type="checkbox">
+              Merge into one paragraph
+            </label>
+          </div>
+
+          <div class="stats">
+            <div class="stat">
+              <span class="stat-value" id="timestampsRemoved">0</span>
+              <span class="stat-label">timestamp lines removed</span>
+            </div>
+            <div class="stat">
+              <span class="stat-value" id="inlineRemoved">0</span>
+              <span class="stat-label">inline timestamps removed</span>
+            </div>
+            <div class="stat">
+              <span class="stat-value" id="wordsOut">0</span>
+              <span class="stat-label">clean words</span>
+            </div>
+            <div class="stat">
+              <span class="stat-value" id="paragraphsOut">0</span>
+              <span class="stat-label">paragraphs</span>
+            </div>
+          </div>
+
+          <div class="notice" id="notice">Paste text or upload a transcript, then press Strip timestamps.</div>
+        </div>
+      </aside>
+    </section>
+
+    <footer>
+      <span>Works with TXT, SRT, VTT, YouTube-style timestamps, and pasted transcript text.</span>
+      <span>Runs entirely in your browser.</span>
+    </footer>
+  </main>
+
+  <script>
+    const sampleTranscript = `00:54:45
+If it made you feel something, anger, relief, hope, or even just a little less alone, then it did what I hoped it would.
+
+00:54:56
+Now I have a question, if you could protect one thing in your life,
+
+00:55:05
+And if this story stayed with you, share it with someone who needs to hear it.
+
+00:55:10
+If you haven't subscribed yet, I'd love to have you here for the next one.`;
+
+    const timestampToken = String.raw`(?:\d{1,2}:)?\d{1,2}:\d{2}(?:[.,]\d{1,3})?`;
+    const timestampOnlyPattern = new RegExp(String.raw`^\s*(?:\[|\()?${timestampToken}(?:\s*-->\s*${timestampToken})?(?:\]|\))?\s*$`);
+    const inlineTimestampPattern = new RegExp(String.raw`(?:^|\s)(?:\[|\()?${timestampToken}(?:\]|\))?(?=\s|$)`, "g");
+    const leadingTimestampPattern = new RegExp(String.raw`^\s*(?:\[|\()?${timestampToken}(?:\]|\))?\s*[-–—:]?\s*`);
+    const srtNumberPattern = /^\s*\d+\s*$/;
+    const webvttPattern = /^\s*WEBVTT(?:\s.*)?$/i;
+
+    const dom = {
+      input: document.getElementById("inputText"),
+      output: document.getElementById("outputText"),
+      clean: document.getElementById("cleanButton"),
+      download: document.getElementById("downloadButton"),
+      copy: document.getElementById("copyButton"),
+      sample: document.getElementById("sampleButton"),
+      clear: document.getElementById("clearButton"),
+      fileInput: document.getElementById("fileInput"),
+      dropZone: document.getElementById("dropZone"),
+      sourceName: document.getElementById("sourceName"),
+      inputStats: document.getElementById("inputStats"),
+      outputStats: document.getElementById("outputStats"),
+      status: document.getElementById("statusText"),
+      notice: document.getElementById("notice"),
+      exportFormat: document.getElementById("exportFormat"),
+      fileName: document.getElementById("fileName"),
+      collapseBreaks: document.getElementById("collapseBreaks"),
+      removeCueNumbers: document.getElementById("removeCueNumbers"),
+      mergeParagraphs: document.getElementById("mergeParagraphs"),
+      timestampsRemoved: document.getElementById("timestampsRemoved"),
+      inlineRemoved: document.getElementById("inlineRemoved"),
+      wordsOut: document.getElementById("wordsOut"),
+      paragraphsOut: document.getElementById("paragraphsOut")
+    };
+
+    let lastResult = null;
+
+    function wordCount(text) {
+      const matches = text.trim().match(/\b[\w'-]+\b/g);
+      return matches ? matches.length : 0;
+    }
+
+    function splitParagraphs(text) {
+      return text
+        .split(/\n{2,}/)
+        .map((part) => part.trim())
+        .filter(Boolean);
+    }
+
+    function stripTranscriptTimestamps(rawText, options = {}) {
+      const settings = {
+        collapseBreaks: true,
+        removeCueNumbers: true,
+        mergeParagraphs: false,
+        ...options
+      };
+
+      const normalized = String(rawText || "")
+        .replace(/\r\n?/g, "\n")
+        .replace(/^\uFEFF/, "");
+
+      let timestampLinesRemoved = 0;
+      let cueNumbersRemoved = 0;
+      let inlineTimestampsRemoved = 0;
+
+      const lines = normalized.split("\n");
+      const cleanedLines = [];
+
+      for (const originalLine of lines) {
+        const trimmed = originalLine.trim();
+
+        if (!trimmed || webvttPattern.test(trimmed) || /^NOTE(?:\s.*)?$/i.test(trimmed)) {
+          cleanedLines.push("");
+          continue;
+        }
+
+        if (timestampOnlyPattern.test(trimmed)) {
+          timestampLinesRemoved += 1;
+          cleanedLines.push("");
+          continue;
+        }
+
+        if (settings.removeCueNumbers && srtNumberPattern.test(trimmed)) {
+          cueNumbersRemoved += 1;
+          cleanedLines.push("");
+          continue;
+        }
+
+        let line = originalLine.replace(leadingTimestampPattern, (match) => {
+          inlineTimestampsRemoved += 1;
+          return "";
+        });
+
+        line = line.replace(inlineTimestampPattern, (match) => {
+          inlineTimestampsRemoved += 1;
+          return match.startsWith(" ") ? " " : "";
+        });
+
+        cleanedLines.push(line.trimEnd());
+      }
+
+      let cleaned = cleanedLines.join("\n")
+        .replace(/[ \t]+\n/g, "\n")
+        .trim();
+
+      if (settings.collapseBreaks) {
+        cleaned = cleaned.replace(/\n{3,}/g, "\n\n");
+      }
+
+      if (settings.mergeParagraphs) {
+        cleaned = cleaned
+          .split(/\n+/)
+          .map((line) => line.trim())
+          .filter(Boolean)
+          .join(" ");
+      }
+
+      const paragraphs = splitParagraphs(cleaned);
+
+      return {
+        text: cleaned,
+        paragraphs,
+        stats: {
+          inputCharacters: normalized.length,
+          outputCharacters: cleaned.length,
+          inputWords: wordCount(normalized),
+          outputWords: wordCount(cleaned),
+          timestampLinesRemoved,
+          cueNumbersRemoved,
+          inlineTimestampsRemoved,
+          paragraphs: paragraphs.length
+        }
+      };
+    }
+
+    function setNotice(message, type = "info") {
+      dom.notice.textContent = message;
+      dom.notice.className = type === "error" ? "notice error" : "notice";
+    }
+
+    function updateInputStats() {
+      const chars = dom.input.value.length;
+      dom.inputStats.textContent = `${chars.toLocaleString()} chars`;
+    }
+
+    function updateOutputStats(result) {
+      const output = result ? result.text : "";
+      dom.outputStats.textContent = `${output.length.toLocaleString()} chars`;
+      dom.timestampsRemoved.textContent = String(result ? result.stats.timestampLinesRemoved : 0);
+      dom.inlineRemoved.textContent = String(result ? result.stats.inlineTimestampsRemoved : 0);
+      dom.wordsOut.textContent = String(result ? result.stats.outputWords : 0);
+      dom.paragraphsOut.textContent = String(result ? result.stats.paragraphs : 0);
+      dom.download.disabled = !output;
+      dom.copy.disabled = !output;
+    }
+
+    function cleanNow() {
+      const raw = dom.input.value;
+      if (!raw.trim()) {
+        lastResult = null;
+        dom.output.value = "";
+        updateOutputStats(null);
+        setNotice("Add a transcript first, then strip timestamps.", "error");
+        return;
+      }
+
+      lastResult = stripTranscriptTimestamps(raw, {
+        collapseBreaks: dom.collapseBreaks.checked,
+        removeCueNumbers: dom.removeCueNumbers.checked,
+        mergeParagraphs: dom.mergeParagraphs.checked
+      });
+
+      dom.output.value = lastResult.text;
+      updateOutputStats(lastResult);
+      dom.status.textContent = "Cleaned";
+      setNotice(`Removed ${lastResult.stats.timestampLinesRemoved} timestamp lines and ${lastResult.stats.inlineTimestampsRemoved} inline timestamps.`);
+    }
+
+    function safeBaseName(value) {
+      const clean = String(value || "clean-transcript")
+        .trim()
+        .replace(/[\\/:*?"<>|]+/g, "-")
+        .replace(/\s+/g, "-")
+        .replace(/^-+|-+$/g, "");
+      return clean || "clean-transcript";
+    }
+
+    function downloadResult() {
+      if (!lastResult || !lastResult.text) return;
+      const format = dom.exportFormat.value;
+      const baseName = safeBaseName(dom.fileName.value);
+      const payload = format === "json"
+        ? JSON.stringify({
+            text: lastResult.text,
+            paragraphs: lastResult.paragraphs,
+            stats: lastResult.stats,
+            generatedAt: new Date().toISOString()
+          }, null, 2)
+        : lastResult.text;
+
+      const blob = new Blob([payload], {
+        type: format === "json" ? "application/json;charset=utf-8" : "text/plain;charset=utf-8"
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${baseName}.${format}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setNotice(`Saved ${baseName}.${format}`);
+    }
+
+    async function copyResult() {
+      if (!lastResult || !lastResult.text) return;
+      try {
+        await navigator.clipboard.writeText(lastResult.text);
+        setNotice("Clean transcript copied to clipboard.");
+      } catch (error) {
+        dom.output.select();
+        document.execCommand("copy");
+        setNotice("Clean transcript copied to clipboard.");
+      }
+    }
+
+    async function loadFile(file) {
+      if (!file) return;
+      const text = await file.text();
+      dom.input.value = text;
+      dom.sourceName.textContent = file.name;
+      dom.status.textContent = "File loaded";
+      updateInputStats();
+      cleanNow();
+    }
+
+    dom.clean.addEventListener("click", cleanNow);
+    dom.download.addEventListener("click", downloadResult);
+    dom.copy.addEventListener("click", copyResult);
+
+    dom.sample.addEventListener("click", () => {
+      dom.input.value = sampleTranscript;
+      dom.sourceName.textContent = "Sample transcript";
+      updateInputStats();
+      cleanNow();
+    });
+
+    dom.clear.addEventListener("click", () => {
+      dom.input.value = "";
+      dom.output.value = "";
+      dom.sourceName.textContent = "Paste text or upload a file";
+      dom.status.textContent = "Ready offline";
+      lastResult = null;
+      updateInputStats();
+      updateOutputStats(null);
+      setNotice("Workspace cleared.");
+    });
+
+    dom.input.addEventListener("input", () => {
+      updateInputStats();
+      dom.status.textContent = "Edited";
+    });
+
+    for (const option of [dom.collapseBreaks, dom.removeCueNumbers, dom.mergeParagraphs]) {
+      option.addEventListener("change", () => {
+        if (dom.input.value.trim()) cleanNow();
+      });
+    }
+
+    dom.fileInput.addEventListener("change", (event) => {
+      loadFile(event.target.files[0]);
+      event.target.value = "";
+    });
+
+    for (const eventName of ["dragenter", "dragover"]) {
+      dom.dropZone.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        dom.dropZone.classList.add("dragover");
+      });
+    }
+
+    for (const eventName of ["dragleave", "drop"]) {
+      dom.dropZone.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        dom.dropZone.classList.remove("dragover");
+      });
+    }
+
+    dom.dropZone.addEventListener("drop", (event) => {
+      const file = event.dataTransfer.files[0];
+      loadFile(file);
+    });
+
+    updateInputStats();
+    updateOutputStats(null);
+  </script>
+</body>
+</html>

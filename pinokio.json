@@ -1,0 +1,8 @@
+{
+  "title": "Transcript Timestamp Stripper",
+  "description": "Upload or paste transcripts and strip timestamps before exporting clean TXT or JSON files.",
+  "icon": "icon.svg",
+  "plugin": {
+    "menu": []
+  }
+}
